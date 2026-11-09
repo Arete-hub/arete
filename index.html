@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="hu" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<title>Areté</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Areté">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* csak a betöltő és a beállítás – az app saját stílusa a szerverről jön */
+  :root{--bg:#F2F2F7;--card:#fff;--fg:#1C1C1E;--mut:#8A8A8F;--line:#E5E5EA;--a:#0A84FF}
+  @media (prefers-color-scheme: dark){:root{--bg:#000;--card:#1C1C1E;--fg:#F5F5F7;--mut:#8E8E93;--line:#2C2C2E;--a:#5E9EFF}}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:16px -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .pw-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top) + 24px) 20px 24px;box-sizing:border-box}
+  .pw-logo{font:700 34px -apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.02em;text-align:center;opacity:.9}
+  .pw-logo small{display:block;font:500 13px inherit;color:var(--mut);margin-top:6px;letter-spacing:0}
+  .pw-card{width:100%;max-width:420px;background:var(--card);border-radius:22px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  .pw-card h1{margin:0 0 6px;font-size:24px}.pw-card p{margin:0 0 16px;color:var(--mut);font-size:14px;line-height:1.45}
+  .pw-card label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:12px 0 6px}
+  .pw-card input{width:100%;box-sizing:border-box;font:15px ui-monospace,Menlo,monospace;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+  .pw-card button{width:100%;margin-top:18px;border:0;border-radius:14px;padding:14px;font:600 16px inherit;background:var(--a);color:#fff}
+  .pw-err{color:var(--fg);background:rgba(10,132,255,.12);border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="pw-wrap" id="pw"><div class="pw-logo">Areté<small>betöltés…</small></div></div>
+<script>
+(function(){
+  var LS = window.localStorage, K_URL = 'arete_api', K_KULCS = 'arete_kulcs', K_SHELL = 'arete_shell';
+  var tema = LS.getItem('arete_tema'); if (tema) document.documentElement.setAttribute('data-theme', tema);
+
+  // egyetlen hívó: minden szerverfüggvény ugyanazon a néven, POST-tal, a titkos kulccsal
+  function api(a, p){
+    var u = LS.getItem(K_URL), k = LS.getItem(K_KULCS);
+    if (!u || !k) { beallit(); return Promise.reject(new Error('Add meg az API-címet és a kulcsot.')); }
+    return fetch(u, { method: 'POST', body: JSON.stringify({ a: a, k: k, p: p || [] }), redirect: 'follow' })
+      .then(function(r){ if (!r.ok) throw new Error('A szerver nem válaszolt (' + r.status + ').'); return r.json(); })
+      .then(function(j){
+        if (j.hiba === 'kulcs') { var e = new Error('Az API-cím vagy a kulcs nem jó.'); beallit(e.message); throw e; }
+        if (j.hiba) throw new Error(j.hiba);
+        return j.v;
+      }, function(e){ if (/Failed to fetch|NetworkError|Load failed/i.test(String(e && e.message))) throw new Error('Nincs kapcsolat – próbáld újra, ha van internet.'); throw e; });
+  }
+  window.ARETE_PWA = { call: function(fn, args){ return api(fn, args); }, beallit: function(){ beallit(); } };
+
+  function indit(s){
+    var st = document.createElement('style'); st.textContent = s.css; document.head.appendChild(st);
+    if (!LS.getItem('arete_tema') && s.tema) document.documentElement.setAttribute('data-theme', s.tema);
+    document.body.innerHTML = s.body;
+    var sc = document.createElement('script'); sc.textContent = s.js; document.body.appendChild(sc);
+  }
+  function esc(x){ return String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function beallit(uz){
+    document.body.innerHTML = '<div class="pw-wrap"><div class="pw-card"><h1>Areté</h1>' +
+      '<p>Egyszer kell beállítani ezen az eszközön. Az API-cím az „Areté API” telepítés /exec címe, a kulcsot a mostani Areté → Én → Rendszer képernyőn kapod („Kulcs megjelenítése”).</p>' +
+      (uz ? '<div class="pw-err">' + esc(uz) + '</div>' : '') +
+      '<label>API-cím</label><input id="pwu" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(LS.getItem(K_URL) || '') + '">' +
+      '<label>Kulcs</label><input id="pwk" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(LS.getItem(K_KULCS) || '') + '">' +
+      '<button id="pwok">Mentés és indítás</button></div></div>';
+    document.getElementById('pwok').onclick = function(){
+      var u = document.getElementById('pwu').value.trim(), k = document.getElementById('pwk').value.trim();
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) { beallit('Az API-cím így néz ki: https://script.google.com/macros/s/…/exec'); return; }
+      if (k.length < 20) { beallit('A kulcs túl rövid – másold be az egészet.'); return; }
+      LS.setItem(K_URL, u); LS.setItem(K_KULCS, k); LS.removeItem(K_SHELL);
+      this.disabled = true; this.textContent = 'Kapcsolódás…';
+      frissit(true).catch(function(e){ beallit(e.message); });
+    };
+  }
+  // a felület a szerverről jön (így a kódfrissítéshez nem kell semmit újra feltölteni); a legutóbbi helyben marad, hogy azonnal induljon
+  function frissit(azonnal){
+    return api('shell').then(function(s){
+      var uj = JSON.stringify(s), regi = LS.getItem(K_SHELL);
+      try { LS.setItem(K_SHELL, uj); } catch (e) {}
+      if (azonnal) { indit(s); return; }
+      if (regi !== uj && window.toast) window.toast('Frissült az app – a következő megnyitáskor már az új változat indul.');
+    });
+  }
+
+  var c = LS.getItem(K_SHELL);
+  if (!LS.getItem(K_URL) || !LS.getItem(K_KULCS)) beallit();
+  else if (c) { try { indit(JSON.parse(c)); } catch (e) { LS.removeItem(K_SHELL); location.reload(); return; } frissit(false).catch(function(){}); }
+  else frissit(true).catch(function(e){ beallit(e.message); });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
+</body>
+</html>

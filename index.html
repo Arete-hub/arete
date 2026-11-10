@@ -78,7 +78,9 @@
   }
   // a felület a szerverről jön (így a kódfrissítéshez nem kell semmit újra feltölteni); a legutóbbi helyben marad, hogy azonnal induljon
   function frissit(azonnal){
-    return api('shell').then(function(s){
+    var rs = null; try { rs = JSON.parse(LS.getItem(K_SHELL) || 'null'); } catch (e) {}
+    return api('shell', [azonnal || !rs ? '' : (rs.hash || '')]).then(function(s){
+      if (s && s.azonos) return;   // nem változott – nem tölti le újra a teljes felületet
       var uj = JSON.stringify(s), regi = LS.getItem(K_SHELL);
       try { LS.setItem(K_SHELL, uj); } catch (e) {}
       if (azonnal) { indit(s); return; }
